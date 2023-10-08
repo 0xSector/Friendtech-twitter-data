@@ -10,11 +10,13 @@ from time import sleep
 #py -m venv venv
 #copy venv->scypts->activate->copy relative path-> paste into terminal
 
-# Step 1: Pull account data from Dune
+# Objective: Automate pulling the latest user twitter data from friend.tech and uploading it to Dune.
+# Step 1: Pull account address data from Dune
 # Step 2: Use dune data to pull FT account data from ft api
 # Step 3: Push data to Dune
-load_dotenv()
 
+# Load api key data stored in .env file
+load_dotenv()
 
 # Request data from FT api
 def getInfoFromAddress(address):
@@ -75,8 +77,6 @@ def duneUpload(csv_file_path, api_key, table_name):
 api_key = os.environ.get("api_key")
 qid = 3085271  
 results = executeQuery(qid,api_key)
-
-#Format dune data
 final_data = results.json()['result']['rows'] 
 trader_values = [item['trader'] for item in final_data]
 
@@ -85,23 +85,19 @@ checkSum = []
 for j in trader_values:
     addressCheckSum = web3.Web3.to_checksum_address(j)
     checkSum.append(addressCheckSum)
-print(checkSum[:5])
-
 
 # check known values
 df = pd.read_csv('ft_user_addresses_raw.csv')
-address_list = df['Trader_Address'].values.tolist()  #get me this column - .values says not header - .tolist says conver to list
+address_list = df['Trader_Address'].values.tolist()  #.values, not header - .tolist, convert to list
 
 #compare checksum(dune data) to know addres values
 new_address = []
 for values in checkSum: 
     if values not in address_list:
         new_address.append(values)
-    
 
-#outer loop - Create batches e.g. (0,500,1000,1500) and then i will iterate through those values
+#create batches and periodic saves due to large request volume    
 batch_size = 500  # Number of records to fetch before saving
-
 
 for i in tqdm(range(0, len(new_address), batch_size)): 
 #for i in tqdm(range(0, 2)):
@@ -118,27 +114,21 @@ for i in tqdm(range(0, len(new_address), batch_size)):
         # Fetch data for each address in the batch
         # Here we pass i into inner loop so that it runs this loop in batches (run first 0+500, then 500:1000, etc...)
         for address in tqdm(new_address[start_index:end_index]):
-            #1250
             try:
                 data = getInfoFromAddress(address)
                 batch_data.append(data.json().get('twitterUsername'))
                 address_data.append(address)
-                #sleep(0.1)  # random guess to prevent rate limits
+                #sleep(0.1) 
             except Exception as e:
-                print(f"\nError for {address}: {e}") #f" reques {} to pass in variables
-                batch_data.append(None) #just append none (is none similar to null?)
+                print(f"\nError for {address}: {e}") #f" requires {} to pass in variables
+                batch_data.append(None) #just append none 
                 address_data.append(address)
     finally:
-    
-    # Save the batch data to CSV
-        print(len(address_data))
-        print(len(batch_data))
+        # Save the batch data to CSV
         temp_df = pd.DataFrame({'Trader_Address': address_data, 'Trader_Twitter': batch_data})
-        print(temp_df)
         df = pd.concat([df,temp_df])
-        print(len(df))
         df.to_csv('ft_user_addresses_raw.csv', index=False)
-        #temp_df.to_csv('ft_user_addresses_raw.csv', index=False)
+
 
 
 # #Pull twitter data from ft api ----------------------------------------
@@ -161,7 +151,7 @@ csv_file_path = 'ft_user_addresses_raw.csv'
 table_name = 'ft_twitter_data1'
 
 response = duneUpload(csv_file_path,api_key,table_name)
-# print(response)
+
 
 
 
